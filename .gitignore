@@ -34,3 +34,7 @@ Thumbs.db
 src/**/data/**
 src/**/datasets/**
 
+
+# Editor/Tool caches
+.cache/
+.clangd/
