@@ -1,0 +1,236 @@
+/**:
+  ros__parameters:
+    # Topics
+    lidar_topic: "/rslidar_points"
+    imu_topic: "/rslidar_imu_data"
+    kinematic_topic: "/joint_states"
+    debug_enable: false
+    debug_jump_pos_thresh: 0.8        # 位置跳变阈值（米）
+    debug_jump_yaw_thresh_deg: 25.0    # 偏航跳变阈值（度）
+    debug_log_period: 0.2    
+    # KI Options
+    only_imu_use: true  # True: use IMU from <sensor_msgs::Imu>, without kinematics
+                         # False: use IMU and Kin. from <unitree_legged_msgs/HighState>
+    redundancy: false    
+
+    # Initialization
+    init_time: 0.05
+    gravity: 9.81                
+
+    # Extrinsic (Transformation from IMU coordinate to Lidar coordinate)    
+    extrinsic_T: [0.00425, 0.00418, -0.00446]
+    extrinsic_R: [
+                    0.0371031,
+                    -0.999192,
+                    0.0154193,
+                    -0.999305,
+                    -0.037043,
+                    0.00416679,
+                    -0.00359224,
+                    -0.0155632,
+                    -0.999872,
+                ] # lbt edit 这是"IMU → LiDAR"的外参（R_LI）：把 IMU 坐标系下的向量旋到 LiDAR 坐标系下。你给的对应关系等价于 v_L = R_LI v_I。
+
+    # Frame IDs
+    output_frame_id: "odom"
+    body_frame_id: "body"
+    lidar_frame_id: "rslidar"
+
+
+    # Lidar Common
+    lidar_type: 1   # Robosense_airy: 1 (仅保留此类型)
+    time_scale: 1.0   # point sampling time scale relative to [sec]
+    blind: 1.5
+    filter_num: 3
+    point_stamp_correct: false  # Set true for legkilo dataset
+                               # (lidar timestamp is the end time of scan)
+    voxel_grid_resolution: 0.5
+    # Drop detection
+    lidar_expected_hz: 10.0
+    lidar_drop_warn_factor: 1.5
+    # Map save
+    map_save_path: "map.pcd"
+
+    # Voxel Map
+    pub_plane_en: true
+    max_layer: 2
+    voxel_size: 0.5
+    min_eigen_value: 0.01
+    sigma_num: 3.0
+    beam_err: 0.2
+    dept_err: 0.04
+    layer_init_num: [5, 5, 5, 5, 5]
+    max_points_num: 50
+    map_sliding_en: false
+    half_map_size: 200
+    sliding_thresh: 8.0
+
+    satu_acc: 35.0
+    satu_gyr: 30.0
+
+    # Eskf cov/noise
+    vel_process_cov: 20.0
+    imu_acc_process_cov: 500.0
+    imu_gyr_process_cov: 1000.0
+    contact_process_cov: 20.0
+    acc_bias_process_cov: 0.001
+    gyr_bias_process_cov: 0.001
+    kin_bias_process_cov: 0.001
+
+    imu_acc_meas_noise: 0.1
+    imu_acc_z_meas_noise: 1.0
+    imu_gyr_meas_noise: 0.01
+    kin_meas_noise: 1.0
+    chd_meas_noise: 0.1
+    contact_meas_noise: 0.001
+    lidar_point_meas_ratio: 5.0 
+
+
+    # ===== 接触检测参数 =====
+    # 基于sigmoid分类器：总得分 = Σ(权重 × 特征得分) + 偏置
+    # 接触概率 = sigmoid(总得分)，接触状态 = (概率 >= 决策阈值)
+
+    # --- 阈值和容差参数 ---
+    contact_knee_torque_threshold_Nm: 11.0
+        # 膝关节扭矩阈值 [Nm]
+        # 含义：当膝关节扭矩绝对值超过此阈值时，认为可能存在接触
+        # 调参方法：
+        #   - 增大：减少误检测，但可能错过轻微接触
+        #   - 减小：提高检测灵敏度，但可能产生误报
+        #   - 建议范围：5-20 Nm，根据机器人重量和地面硬度调整
+        # 得分判断：当|tau_knee| > threshold时，torque得分接近1.0；否则接近0.0
+
+    contact_foot_height_target_m: -0.43
+        # 足端目标高度 [m]
+        # 含义：期望的足端接触高度，通常为机器人站立时的足端高度
+        # 调参方法：
+        #   - 根据机器人几何尺寸和期望的站立高度设置
+        #   - 通常为负值（相对于机器人坐标系）
+        #   - 建议范围：-0.5到-0.3米
+        # 得分判断：当foot_z接近target_z时，height得分接近1.0；偏离越大得分越低
+
+    contact_foot_height_tolerance_m: 0.02
+        # 足端高度容差 [m]
+        # 含义：允许的足端高度偏差范围
+        # 调参方法：
+        #   - 增大：允许更大的高度偏差，检测更宽松
+        #   - 减小：要求更精确的高度匹配，检测更严格
+        #   - 建议范围：0.02-0.1米
+        # 得分判断：当|foot_z - target_z| < tolerance时，height得分较高
+
+    contact_knee_torque_change_scale_Nm: 5.0
+        # 扭矩变化检测尺度 [Nm]
+        # 含义：用于检测扭矩突然下降的特征尺度（接触时扭矩通常会下降）
+        # 调参方法：
+        #   - 增大：对扭矩变化不敏感，减少噪声影响
+        #   - 减小：对扭矩变化更敏感，但可能受噪声干扰
+        #   - 建议范围：2-10 Nm
+        # 得分判断：当当前扭矩比滑动窗口内最小扭矩低很多时，torque_change得分高
+
+    contact_foot_vx_contact_threshold_mps: 0.1
+        # 足端x方向速度接触阈值 [m/s]
+        # 含义：当足端x方向速度绝对值小于此阈值时，认为足端相对静止，有利于接触检测
+        # 调参方法：
+        #   - 增大：更宽松的静止判定，允许更大的x方向速度
+        #   - 减小：更严格的静止判定，要求足端更接近静止
+        #   - 建议范围：0.05-0.2 m/s
+        #   - 得分判断：当|vx| < threshold时，foot_vx得分接近1.0；否则接近0.0
+
+    # --- 特征权重参数 ---
+    contact_weight_torque: 10.0
+        # 扭矩特征权重
+        # 含义：膝关节扭矩在总得分中的重要性
+        # 调参方法：
+        #   - 增大：更依赖扭矩信息进行检测
+        #   - 减小：降低扭矩信息的影响
+        #   - 建议范围：5-20
+        # 得分判断：权重越大，torque特征对最终概率的影响越大
+
+    contact_weight_speed: 0.0
+        # 速度特征权重
+        # 含义：膝关节速度在总得分中的重要性
+        # 调参方法：
+        #   - 增大：更强调速度接近零的特征
+        #   - 减小：降低速度信息的影响
+        #   - 建议范围：0.5-3.0
+        # 得分判断：当knee_dq接近0时，speed得分接近1.0
+
+    contact_weight_height: 6.0
+        # 高度特征权重
+        # 含义：足端高度在总得分中的重要性
+        # 调参方法：
+        #   - 增大：更强调足端高度匹配
+        #   - 减小：降低高度信息的影响
+        #   - 建议范围：1.0-3.0
+        # 得分判断：当足端高度接近目标高度时，height得分高
+
+    contact_weight_torque_change: 0.0
+        # 扭矩变化特征权重
+        # 含义：扭矩变化在总得分中的重要性
+        # 调参方法：
+        #   - 增大：更强调扭矩下降特征
+        #   - 减小：降低扭矩变化信息的影响
+        #   - 建议范围：0.05-0.5
+        # 得分判断：权重较小，主要用于辅助检测
+
+
+    contact_weight_foot_vx: 12.0
+        # 足端x方向速度特征权重
+        # 含义：足端x方向速度在总得分中的重要性
+        # 调参方法：
+        #   - 增大：更强调足端静止特征
+        #   - 减小：降低足端速度信息的影响
+        #   - 建议范围：0.5-3.0
+        #   - 得分判断：权重越大，foot_vx特征对最终概率的影响越大
+
+    # --- 分类器参数 ---
+    contact_bias: -2.5
+        # 偏置项
+        # 含义：调整整体检测的倾向性
+        # 调参方法：
+        #   - 正值：倾向于检测为接触
+        #   - 负值：倾向于检测为非接触
+        #   - 建议范围：-2.0到2.0
+        # 得分判断：直接影响总得分的基准值
+
+    contact_decision_threshold: 0.9
+        # 决策阈值
+        # 含义：接触概率的判定阈值
+        # 调参方法：
+        #   - 增大：更严格的接触判定，减少误报
+        #   - 减小：更宽松的接触判定，提高检测率
+        #   - 建议范围：0.3-0.7
+        # 得分判断：当probability >= threshold时判定为接触
+
+    # --- 滑动窗口参数 ---
+    contact_sliding_window_size: 6
+        # 滑动窗口大小
+        # 含义：用于计算扭矩变化特征的历史数据点数
+        # 调参方法：
+        #   - 增大：考虑更长的历史，但响应更慢
+        #   - 减小：响应更快，但可能受瞬时噪声影响
+        #   - 建议范围：3-10
+        # 得分判断：窗口越大，torque_change特征越稳定
+
+    # --- 状态机参数 ---
+    contact_state_hold_time_s: 0.15
+        # 状态保持时间 [s]
+        # 含义：接触或离地状态切换后的保持时间，避免反复横跳
+        # 调参方法：
+        #   - 增大：更稳定，但响应延迟增加
+        #   - 减小：响应更快，但可能产生抖动
+        #   - 建议范围：0.05-0.2秒
+        #   - 得分判断：时间越长，状态切换越平滑
+
+
+
+
+    # ===== 参数调优指南 =====
+    # 1. 首先调整阈值参数（torque_threshold, height_target, height_tolerance, foot_vx_threshold）
+    # 2. 然后调整权重参数，平衡各个特征的重要性
+    # 3. 最后微调bias和decision_threshold
+    # 4. 通过观察各项得分来判断参数是否合适：
+    #    - 接触时：torque得分应>0.8，speed得分应>0.7，height得分应>0.6，foot_vx得分应>0.7
+    #    - 非接触时：各项得分应<0.3
+    #    - 如果某项得分异常，调整对应的权重或阈值
+

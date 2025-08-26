@@ -1,0 +1,36 @@
+# ROS2 / Colcon / CMake
+build/
+log/
+install/
+.colcon/
+*.pyc
+__pycache__/
+.ccls-cache/
+*.swp
+*.swo
+*.user
+# VSCode / IDE
+.vscode/
+.idea/
+# OS / Misc
+.DS_Store
+Thumbs.db
+
+# ROS bag and dataset outputs
+*.bag
+*.db3
+*.ros
+
+# Generated meshes and maps
+*.pgm
+*.bt
+*.ot
+*.stl
+*.ply
+*.pcd
+*.vtk
+
+# Large data directories (adjust as needed)
+src/**/data/**
+src/**/datasets/**
+

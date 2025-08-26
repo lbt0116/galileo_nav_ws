@@ -1,0 +1,9 @@
+# 节点启动控制配置
+bringup:
+  ros__parameters:
+    use_klio: true
+    use_sam: false
+    use_map: true
+    use_bag_play: true
+    bag_file_path: "src/galileo_data/8.12-1"
+

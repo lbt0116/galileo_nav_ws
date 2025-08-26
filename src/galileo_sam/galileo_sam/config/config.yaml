@@ -1,0 +1,42 @@
+/**:
+  ros__parameters:
+    basic.map_frame: "map"
+    basic.loop_update_hz: 2.0
+    basic.vis_hz: 1.0
+    basic.odom_topic: "/klio/odometry"
+    basic.lidar_topic: "/klio/pointcloud_world"
+
+    keyframe.keyframe_threshold: 1.5
+    keyframe.num_submap_keyframes: 10
+    keyframe.enable_submap_matching: false
+
+    quatro_nano_gicp_voxel_resolution: 0.3
+    save_voxel_resolution: 0.3
+    scancontext_max_correspondence_distance: 35.0
+
+    nano_gicp.thread_number: 0
+    nano_gicp.icp_score_threshold: 1.5
+    nano_gicp.correspondences_number: 15
+    nano_gicp.max_correspondence_distance: 15.0
+    nano_gicp.max_iter: 32
+    nano_gicp.transformation_epsilon: 0.01
+    nano_gicp.euclidean_fitness_epsilon: 0.01
+    nano_gicp.ransac.max_iter: 5
+    nano_gicp.ransac.outlier_rejection_threshold: 1.0
+
+    quatro.enable: true
+    quatro.optimize_matching: true
+    quatro.distance_threshold: 35.0
+    quatro.max_correspondences: 500
+    quatro.fpfh_normal_radius: 0.9
+    quatro.fpfh_radius: 1.5
+    quatro.estimating_scale: false
+    quatro.noise_bound: 0.3
+    quatro.rotation.num_max_iter: 50
+    quatro.rotation.gnc_factor: 1.4
+    quatro.rotation.rot_cost_diff_threshold: 0.0001
+
+    result.save_map_pcd: true
+    result.save_map_bag: true
+    result.save_in_kitti_format: true
+    result.seq_name: "sequence"
