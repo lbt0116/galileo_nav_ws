@@ -1,6 +1,7 @@
 #include "galileo_klio_node.h"
 
 #include <rclcpp/logging.hpp>
+#include <rclcpp/qos.hpp>
 
 #include "timer_utils.hpp"
 // 移除 glog，统一使用 ROS2 日志
@@ -75,6 +76,7 @@ GalileoKLIONode::GalileoKLIONode()
     // 初始化传感器参数
     ext_rot_ = Mat3D::Identity();
     ext_t_ = Vec3D::Zero();
+    lidar_to_body_rot_ = Mat3D::Identity();
     satu_acc_ = 0.0;
     satu_gyr_ = 0.0;
     // 输出坐标系帧名和机器人本体坐标系帧名将在initParamAndReset中从参数服务器获取
@@ -118,6 +120,11 @@ GalileoKLIONode::GalileoKLIONode()
 
     RCLCPP_INFO(this->get_logger(), "订阅IMU话题: %s", imu_topic_.c_str());
 
+    // 订阅机载九轴IMU（仅保存最新消息）
+    sub_imu_onboard_ = this->create_subscription<sensor_msgs::msg::Imu>(
+        imu_onboard_topic_, rclcpp::SensorDataQoS(), std::bind(&GalileoKLIONode::imuOnboardCallback, this, std::placeholders::_1), opt_imu);
+    RCLCPP_INFO(this->get_logger(), "订阅机载IMU话题: %s", imu_onboard_topic_.c_str());
+
     rclcpp::SubscriptionOptions opt_joint;
     opt_joint.callback_group = cb_group_joint_;
 
@@ -129,25 +136,30 @@ GalileoKLIONode::GalileoKLIONode()
         std::bind(&GalileoKLIONode::kinematicCallback, this, std::placeholders::_1),
         opt_joint);
 
+    // 订阅用户命令话题
+    RCLCPP_INFO(this->get_logger(), "订阅用户命令话题: %s", cmd_vel_topic_.c_str());
+    sub_cmd_vel_ = this->create_subscription<geometry_msgs::msg::Twist>(
+        cmd_vel_topic_, 10,
+        std::bind(&GalileoKLIONode::userCommandCallback, this, std::placeholders::_1));
+
     // 发布话题
-    pub_pointcloud_body_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("klio/pointcloud_body", 10);
-    pub_pointcloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("klio/pointcloud_world", 10);
-    pub_pointcloud_world_full_ =
-        this->create_publisher<sensor_msgs::msg::PointCloud2>("klio/pointcloud_world_full", 10);
-    pub_path_ = this->create_publisher<nav_msgs::msg::Path>("klio/path", 10);
-    pub_odom_world_ = this->create_publisher<nav_msgs::msg::Odometry>("klio/odometry", 10);
-    pub_body_velocity_imu_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("klio/body_velocity_imu", 10);
+    pub_pointcloud_body_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_body_, 10);
+    pub_pointcloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_, 10);
+    pub_pointcloud_world_full_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_full_, 10);
+    pub_path_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_, 10);
+    pub_path_to_map_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_to_map_, 10);
+    pub_odom_world_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_world_, 10);
+    pub_odom_to_map_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_to_map_, 10);
+    pub_pointcloud_to_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_to_map_, 10);
+    pub_body_velocity_imu_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(topic_body_velocity_imu_, 10);
 
     // 初始化四条腿的发布器
     std::vector<std::string> leg_names = {"FR", "FL", "RR", "RL"};
     for (const auto &leg_name : leg_names)
     {
-        pub_contact_scores_[leg_name] =
-            this->create_publisher<std_msgs::msg::Float64MultiArray>("klio/contact_scores_" + leg_name, 10);
-        pub_foot_position_[leg_name] =
-            this->create_publisher<geometry_msgs::msg::PoseStamped>("klio/foot_position_" + leg_name, 10);
-        pub_foot_velocity_[leg_name] =
-            this->create_publisher<geometry_msgs::msg::TwistStamped>("klio/foot_velocity_" + leg_name, 10);
+        pub_contact_scores_[leg_name] = this->create_publisher<std_msgs::msg::Float64MultiArray>(topic_contact_scores_prefix_ + leg_name, 10);
+        pub_foot_position_[leg_name] = this->create_publisher<geometry_msgs::msg::PoseStamped>(topic_foot_position_prefix_ + leg_name, 10);
+        pub_foot_velocity_[leg_name] = this->create_publisher<geometry_msgs::msg::TwistStamped>(topic_foot_velocity_prefix_ + leg_name, 10);
     }
     // 体素地图 MarkerArray 发布器
     // 注意：实际发布由 VoxelMapManager::pubVoxelMap 完成，这里只创建发布器实例
@@ -177,6 +189,8 @@ bool GalileoKLIONode::initParamAndReset()
     this->declare_parameter("lidar_topic", "/points_raw");
     this->declare_parameter("imu_topic", "/imu_raw");
     this->declare_parameter("kinematic_topic", "/high_state");
+    this->declare_parameter("imu_onboard_topic", std::string("/imu_onboard"));
+    this->declare_parameter("cmd_vel_topic", std::string("/cmd_vel"));
 
     this->declare_parameter("only_imu_use", false);
     this->declare_parameter("redundancy", true);
@@ -189,9 +203,12 @@ bool GalileoKLIONode::initParamAndReset()
     this->declare_parameter("body_frame_id", std::string("body"));
     // 激光雷达坐标系帧名
     this->declare_parameter("lidar_frame_id", std::string("rslidar"));
+    this->declare_parameter("map_frame_id", std::string("map"));
 
     this->declare_parameter("extrinsic_T", std::vector<double>{0.0, 0.0, 0.0});
     this->declare_parameter("extrinsic_R", std::vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
+    // 新增：IMU->Body 旋转（9元数组）
+    this->declare_parameter("lidar_to_body_R", std::vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
 
     // 默认仅支持 Robosense Airy，保留参数但默认值设为 3
     this->declare_parameter("lidar_type", 3);
@@ -201,6 +218,20 @@ bool GalileoKLIONode::initParamAndReset()
     this->declare_parameter("point_stamp_correct", true);
     this->declare_parameter("voxel_grid_resolution", 0.5);
     this->declare_parameter("map_save_path", std::string("map.pcd"));
+    // 发布话题参数
+    this->declare_parameter("topic_pointcloud_body", std::string("klio/pointcloud_body"));
+    this->declare_parameter("topic_pointcloud_world", std::string("klio/pointcloud_world"));
+    this->declare_parameter("topic_pointcloud_world_full", std::string("klio/pointcloud_world_full"));
+    this->declare_parameter("topic_path", std::string("klio/path"));
+    this->declare_parameter("topic_odom_world", std::string("klio/odometry"));
+    this->declare_parameter("topic_odom_to_map", std::string("klio/odometry_to_map"));
+    this->declare_parameter("topic_pointcloud_to_map", std::string("klio/pointcloud_to_map"));
+    this->declare_parameter("topic_path_to_map", std::string("klio/path_to_map"));
+    this->declare_parameter("topic_body_velocity_imu", std::string("klio/body_velocity_imu"));
+    this->declare_parameter("topic_voxel_map", std::string("klio/voxel_map"));
+    this->declare_parameter("topic_contact_scores_prefix", std::string("klio/contact_scores_"));
+    this->declare_parameter("topic_foot_position_prefix", std::string("klio/foot_position_"));
+    this->declare_parameter("topic_foot_velocity_prefix", std::string("klio/foot_velocity_"));
 
     this->declare_parameter("pub_plane_en", false);
     this->declare_parameter("max_layer", 2);
@@ -281,7 +312,9 @@ bool GalileoKLIONode::initParamAndReset()
     // 获取话题配置
     lidar_topic_ = this->get_parameter("lidar_topic").as_string();
     imu_topic_ = this->get_parameter("imu_topic").as_string();
+    imu_onboard_topic_ = this->get_parameter("imu_onboard_topic").as_string();
     kinematic_topic_ = this->get_parameter("kinematic_topic").as_string();
+    cmd_vel_topic_ = this->get_parameter("cmd_vel_topic").as_string();
 
     // 获取选项配置
     only_imu_use_ = this->get_parameter("only_imu_use").as_bool();
@@ -294,16 +327,35 @@ bool GalileoKLIONode::initParamAndReset()
     satu_gyr_ = this->get_parameter("satu_gyr").as_double();
     voxel_grid_resolution_ = this->get_parameter("voxel_grid_resolution").as_double();
     map_save_path_ = this->get_parameter("map_save_path").as_string();
+    // 读取话题名参数
+    topic_pointcloud_body_ = this->get_parameter("topic_pointcloud_body").as_string();
+    topic_pointcloud_world_ = this->get_parameter("topic_pointcloud_world").as_string();
+    topic_pointcloud_world_full_ = this->get_parameter("topic_pointcloud_world_full").as_string();
+    topic_path_ = this->get_parameter("topic_path").as_string();
+    topic_odom_world_ = this->get_parameter("topic_odom_world").as_string();
+    topic_odom_to_map_ = this->get_parameter("topic_odom_to_map").as_string();
+    topic_pointcloud_to_map_ = this->get_parameter("topic_pointcloud_to_map").as_string();
+    topic_path_to_map_ = this->get_parameter("topic_path_to_map").as_string();
+    topic_body_velocity_imu_ = this->get_parameter("topic_body_velocity_imu").as_string();
+    topic_voxel_map_ = this->get_parameter("topic_voxel_map").as_string();
+    topic_contact_scores_prefix_ = this->get_parameter("topic_contact_scores_prefix").as_string();
+    topic_foot_position_prefix_ = this->get_parameter("topic_foot_position_prefix").as_string();
+    topic_foot_velocity_prefix_ = this->get_parameter("topic_foot_velocity_prefix").as_string();
 
     // 获取外参
     auto extrinsic_T = this->get_parameter("extrinsic_T").as_double_array();
     auto extrinsic_R = this->get_parameter("extrinsic_R").as_double_array();
+    // 保留 IMU->Lidar 旋转矩阵（用于计算 IMU->Body）
+    Eigen::Matrix3d extrinsic_R_LI;
+    extrinsic_R_LI.setIdentity();
+    auto lidar_to_body_R = this->get_parameter("lidar_to_body_R").as_double_array();
     // 获取输出帧名
     output_frame_id_ = this->get_parameter("output_frame_id").as_string();
     // 获取机器人本体坐标系帧名
     body_frame_id_ = this->get_parameter("body_frame_id").as_string();
     // 获取激光雷达坐标系帧名
     lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+    map_frame_id_ = this->get_parameter("map_frame_id").as_string();
 
     // 配置ESKF参数
     eskf_config_.vel_process_cov = this->get_parameter("vel_process_cov").as_double();
@@ -402,8 +454,19 @@ bool GalileoKLIONode::initParamAndReset()
     }
     if (extrinsic_R.size() >= 9)
     {
-        ext_rot_ << extrinsic_R[0], extrinsic_R[1], extrinsic_R[2], extrinsic_R[3], extrinsic_R[4], extrinsic_R[5],
-            extrinsic_R[6], extrinsic_R[7], extrinsic_R[8];
+        // IMU->Lidar 旋转
+        extrinsic_R_LI << extrinsic_R[0], extrinsic_R[1], extrinsic_R[2],
+                          extrinsic_R[3], extrinsic_R[4], extrinsic_R[5],
+                          extrinsic_R[6], extrinsic_R[7], extrinsic_R[8];
+        // 存储为 Lidar->IMU 旋转
+        ext_rot_ = extrinsic_R_LI;
+    }
+
+    if (lidar_to_body_R.size() >= 9)
+    {
+        lidar_to_body_rot_ << lidar_to_body_R[0], lidar_to_body_R[1], lidar_to_body_R[2],
+                            lidar_to_body_R[3], lidar_to_body_R[4], lidar_to_body_R[5],
+                            lidar_to_body_R[6], lidar_to_body_R[7], lidar_to_body_R[8];
     }
 
     ext_rot_.transposeInPlace();
@@ -417,7 +480,7 @@ bool GalileoKLIONode::initParamAndReset()
     map_manager_->extT_ = ext_t_;
     map_manager_->extR_ = ext_rot_;
     // 初始化体素地图发布器
-    map_manager_->voxel_map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("klio/voxel_map", 10);
+    map_manager_->voxel_map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_voxel_map_, 10);
     // 传递输出修正到地图发布器
     map_manager_->outR_pub_.setIdentity();
     map_manager_->output_frame_id_ = output_frame_id_;
@@ -506,6 +569,30 @@ void GalileoKLIONode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedP
     // std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time); RCLCPP_DEBUG(this->get_logger(),
     // "激光雷达处理耗时: %ld 微秒", duration.count());
     return;
+}
+
+void GalileoKLIONode::imuOnboardCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
+    // 仅保存最新机载IMU消息
+    imu_onboard_latest_ = msg;
+}
+
+void GalileoKLIONode::userCommandCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
+{
+    // 保存最新的用户命令消息
+    user_command_latest_ = msg;
+
+    // 记录用户命令信息（仅前几次）
+    static int user_cmd_log_count = 0;
+    if (user_cmd_log_count < 5)
+    {
+        RCLCPP_INFO(this->get_logger(), "[UserCmd %d] vx=%.3f vy=%.3f wz=%.3f",
+                    user_cmd_log_count + 1,
+                    msg->linear.x,
+                    msg->linear.y,
+                    msg->angular.z);
+        user_cmd_log_count++;
+    }
 }
 
 void GalileoKLIONode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -659,6 +746,10 @@ void GalileoKLIONode::kinematicCallback(const sensor_msgs::msg::JointState::Shar
             contact_state_machines_[leg_name] = legutils::ContactStateMachine();
         }
 
+        // 获取用户命令期望速度（直接使用user_command_latest_的值）
+        const double desired_vx = user_command_latest_ ? user_command_latest_->linear.x : 0.3;
+        const double desired_vy = user_command_latest_ ? user_command_latest_->linear.y : 0.0;
+
         // 获取详细得分（包含状态机处理）
         const legutils::ContactScores scores =
             legutils::contactProbabilitySigmoidDetailed(knee_tau,
@@ -670,8 +761,8 @@ void GalileoKLIONode::kinematicCallback(const sensor_msgs::msg::JointState::Shar
                                                         contact_state_machines_[leg_name],
                                                         current_time,
                                                         contact_params_,
-                                                        /*foot_vxd_world*/ 0.3,
-                                                        /*foot_vyd_world*/ 0.0);
+                                                        desired_vx,
+                                                        desired_vy);
 
         // 发布接触检测结果
         if (pub_contact_scores_.find(leg_name) != pub_contact_scores_.end())
@@ -863,7 +954,8 @@ void GalileoKLIONode::kinematicCallback(const sensor_msgs::msg::JointState::Shar
     // 调用processing函数进行数据包装和坐标转换
     galileo_klio::common::KinImuMeas kin_imu_meas;
     legutils::processing(
-        aligned_timestamp, foot_positions, foot_velocities, imu_acc, imu_gyr, contacts, kin_imu_meas, ext_t_, ext_rot_);
+                 aligned_timestamp, foot_positions, foot_velocities, imu_acc, imu_gyr, contacts,
+         kin_imu_meas, ext_t_, ext_rot_, lidar_to_body_rot_);
 
     // 由足端速度反推 IMU系机身速度（接触腿加权平均）并发布
     {
@@ -966,6 +1058,16 @@ void GalileoKLIONode::timerCallback()
         acc_norm_ = state_initial_->getAccNorm();
         last_state_predict_time_ = end_time;
         last_state_update_time_ = end_time;
+        // 若有机载IMU消息，则记录初始化姿态（仅记录一次）
+        if (!has_imu_onboard_init_ && imu_onboard_latest_)
+        {
+            imu_onboard_init_q_ = Eigen::Quaterniond(
+                imu_onboard_latest_->orientation.w,
+                imu_onboard_latest_->orientation.x,
+                imu_onboard_latest_->orientation.y,
+                imu_onboard_latest_->orientation.z);
+            has_imu_onboard_init_ = true;
+        }
         return;
     }
 
@@ -1091,8 +1193,10 @@ void GalileoKLIONode::timerCallback()
 
     this->publishOdomTFPath(end_time);//slow pub
     this->publishPointcloudWorld(end_time);
+    // 发布给地图节点的基于初始化IMU世界系的数据（不使用实时IMU旋转）
+    this->publishMappingInputs(end_time);
     // 发布未降采样且已转换到世界系的点云，时间戳使用 begin_time（与原始点云保持一致的起始戳）
-    this->publishPointcloudWorldFull(begin_time);
+    // this->publishPointcloudWorldFull(begin_time);
     // 发布体素地图（节流，例如10Hz）
     if (voxel_map_config_.is_pub_plane_map_)
     {
@@ -1252,11 +1356,6 @@ bool GalileoKLIONode::syncPackage()
     return false;
 }
 
-void GalileoKLIONode::initStateAndMap()
-{
-    RCLCPP_INFO(this->get_logger(), "初始化状态和地图");
-    // 初始化ESKF、地图管理器等
-}
 
 bool GalileoKLIONode::predictUpdateImu(const sensor_msgs::msg::Imu::SharedPtr &imu)
 {
@@ -1794,6 +1893,66 @@ void GalileoKLIONode::publishStaticTF()
     
     RCLCPP_INFO(this->get_logger(), "发布静态TF: %s -> %s (外参变换)", 
                 body_frame_id_.c_str(), lidar_frame_id_.c_str());
+}
+
+void GalileoKLIONode::publishMappingInputs(double stamp_sec)
+{
+    const Eigen::Vector3d t_W = eskf_->state().pos_;
+    const Eigen::Matrix3d R_Wimu_W =  lidar_to_body_rot_ * ext_rot_.transpose();//
+    const Eigen::Vector3d t_Wimu = R_Wimu_W * t_W;
+
+    // 发布基于IMU世界系的里程计
+    nav_msgs::msg::Odometry odom_to_map;
+    odom_to_map.header.stamp = rclcpp::Time(stamp_sec);
+    odom_to_map.header.frame_id = map_frame_id_.empty() ? std::string("map") : map_frame_id_;
+    odom_to_map.child_frame_id = body_frame_id_;
+    odom_to_map.pose.pose.position.x = t_Wimu.x();
+    odom_to_map.pose.pose.position.y = t_Wimu.y();
+    odom_to_map.pose.pose.position.z = t_Wimu.z();
+
+    odom_to_map.pose.pose.orientation = imu_onboard_latest_->orientation;
+
+    pub_odom_to_map_->publish(odom_to_map);
+
+    // Path (Wimu frame)
+    geometry_msgs::msg::PoseStamped pose_map;
+    pose_map.header.stamp = odom_to_map.header.stamp;
+    pose_map.header.frame_id = odom_to_map.header.frame_id;
+    pose_map.pose = odom_to_map.pose.pose;
+    if (path_map_.header.frame_id.empty())
+    {
+        path_map_.header.frame_id = odom_to_map.header.frame_id;
+    }
+    path_map_.header.stamp = odom_to_map.header.stamp;
+    path_map_.poses.push_back(pose_map);
+    pub_path_to_map_->publish(path_map_);
+    // 发布基于IMU世界系的点云：使用未降采样点云 raw，先转到W，再转到 map（Wimu）
+    if (cloud_raw_ && !cloud_raw_->points.empty())
+    {
+        pcl::PointCloud<PointType> cloud_pub;
+        cloud_pub.header.stamp = static_cast<uint64_t>(stamp_sec * 1e9);
+        cloud_pub.points.resize(cloud_raw_->points.size());
+        for (size_t i = 0; i < cloud_raw_->points.size(); ++i)
+        {
+            const auto &pt = cloud_raw_->points[i];
+            // raw 点先从 Lidar -> IMU
+            Eigen::Vector3d p_L(pt.x, pt.y, pt.z);
+            Eigen::Vector3d p_I = ext_rot_ * p_L + ext_t_;
+            // 再从 IMU -> W
+            Eigen::Vector3d p_W = eskf_->state().rot_ * p_I + eskf_->state().pos_;
+            // 再从 W -> map(Wimu)
+            Eigen::Vector3d p_Wimu = R_Wimu_W * p_W;
+            cloud_pub.points[i].x = static_cast<float>(p_Wimu.x());
+            cloud_pub.points[i].y = static_cast<float>(p_Wimu.y());
+            cloud_pub.points[i].z = static_cast<float>(p_Wimu.z());
+            cloud_pub.points[i].intensity = pt.intensity;
+        }
+        sensor_msgs::msg::PointCloud2 cloud_msg;
+        pcl::toROSMsg(cloud_pub, cloud_msg);
+        cloud_msg.header.stamp = rclcpp::Time(stamp_sec);
+        cloud_msg.header.frame_id = map_frame_id_.empty() ? std::string("map") : map_frame_id_;
+        pub_pointcloud_to_map_->publish(cloud_msg);
+    }
 }
 
 

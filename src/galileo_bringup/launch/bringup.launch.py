@@ -5,7 +5,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.substitutions import FindPackageShare
-# from launch_ros.actions import Node  # 不再需要
+from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
 import yaml
@@ -33,6 +33,11 @@ def generate_launch_description():
         'use_map',
         default_value=str(cfg.get('use_map', False)).lower(),
         description='Enable galileo_map node'
+    )
+    use_bridge_arg = DeclareLaunchArgument(
+        'use_bridge',
+        default_value=str(cfg.get('use_bridge', False)).lower(),
+        description='Enable LCM-ROS2 bridge node'
     )
     use_rviz_arg = DeclareLaunchArgument(
         'use_rviz',
@@ -149,11 +154,30 @@ def generate_launch_description():
         launch_arguments={},
     )
 
+    # LCM-ROS2 Bridge 节点
+    bridge_node = Node(
+        package='galileo_lcm_ros2_bridge',
+        executable='recorder_node',
+        name='lcm_ros2_bridge_node',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('use_bridge'))
+    )
+
+    bridge_enabled_log = LogInfo(
+        msg='[Galileo Bringup] LCM-ROS2 bridge 启用',
+        condition=IfCondition(LaunchConfiguration('use_bridge'))
+    )
+    bridge_disabled_log = LogInfo(
+        msg='[Galileo Bringup] LCM-ROS2 bridge 禁用',
+        condition=UnlessCondition(LaunchConfiguration('use_bridge'))
+    )
+
     return LaunchDescription([
         # args
         use_klio_arg,
         use_sam_arg,
         use_map_arg,
+        use_bridge_arg,
         use_rviz_arg,
         use_bag_play_arg,
         bag_file_path_arg,
@@ -167,11 +191,14 @@ def generate_launch_description():
         bag_play_disabled_log,
         map_enabled_log,
         map_disabled_log,
+        bridge_enabled_log,
+        bridge_disabled_log,
         # includes
         klio_launch,
         sam_launch,
         map_launch,
         # nodes
         bag_play_proc,
+        bridge_node,
         # 可选：map_node,
     ])

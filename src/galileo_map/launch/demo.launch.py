@@ -16,6 +16,16 @@ def generate_launch_description():
         description='Path to ROG-Map config yaml'
     )
 
+    rviz_config_arg = DeclareLaunchArgument(
+        'rviz_config',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('galileo_map'),
+            'config',
+            'galileo_map.rviz',
+        ]),
+        description='Path to RViz2 config file'
+    )
+
     node = Node(
         package='galileo_map',
         executable='galileo_map_node',
@@ -26,4 +36,17 @@ def generate_launch_description():
         }]
     )
 
-    return LaunchDescription([config_path_arg, node])
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='galileo_map_rviz',
+        output='screen',
+        arguments=['-d', LaunchConfiguration('rviz_config')]
+    )
+
+    return LaunchDescription([
+        config_path_arg,
+        rviz_config_arg,
+        node,
+        rviz_node,
+    ])

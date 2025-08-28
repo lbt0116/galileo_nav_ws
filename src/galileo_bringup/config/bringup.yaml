@@ -4,6 +4,7 @@ bringup:
     use_klio: true
     use_sam: false
     use_map: true
+    use_bridge: false  # Enable LCM-ROS2 bridge node
     use_bag_play: true
     bag_file_path: "src/galileo_data/8.12-1"
 

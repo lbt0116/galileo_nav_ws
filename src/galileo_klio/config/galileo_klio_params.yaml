@@ -3,13 +3,15 @@
     # Topics
     lidar_topic: "/rslidar_points"
     imu_topic: "/rslidar_imu_data"
+    imu_onboard_topic: "/imu"
     kinematic_topic: "/joint_states"
+    cmd_vel_topic: "/cmd_vel"
     debug_enable: false
     debug_jump_pos_thresh: 0.8        # 位置跳变阈值（米）
     debug_jump_yaw_thresh_deg: 25.0    # 偏航跳变阈值（度）
     debug_log_period: 0.2    
     # KI Options
-    only_imu_use: true  # True: use IMU from <sensor_msgs::Imu>, without kinematics
+    only_imu_use: false  # True: use IMU from <sensor_msgs::Imu>, without kinematics
                          # False: use IMU and Kin. from <unitree_legged_msgs/HighState>
     redundancy: false    
 
@@ -31,10 +33,18 @@
                     -0.999872,
                 ] # lbt edit 这是"IMU → LiDAR"的外参（R_LI）：把 IMU 坐标系下的向量旋到 LiDAR 坐标系下。你给的对应关系等价于 v_L = R_LI v_I。
 
+        # IMU -> Body rotation (3x3 row-major)
+    lidar_to_body_R: [
+                     0.0, 0.0, 1.0,
+                     0.0, 1.0, 0.0,
+                     -1.0, 0.0, 0.0
+                    ] 
+
     # Frame IDs
     output_frame_id: "odom"
     body_frame_id: "body"
     lidar_frame_id: "rslidar"
+    map_frame_id: "map"
 
 
     # Lidar Common
@@ -50,6 +60,20 @@
     lidar_drop_warn_factor: 1.5
     # Map save
     map_save_path: "map.pcd"
+
+    # KLIO published topics (parameterized)
+    topic_pointcloud_body: "klio/pointcloud_body"
+    topic_pointcloud_world: "klio/pointcloud_world"
+    topic_pointcloud_world_full: "klio/pointcloud_world_full"
+    topic_path: "klio/path"
+    topic_odom_world: "klio/odometry"
+    topic_odom_to_map: "klio/odometry_to_map"
+    topic_pointcloud_to_map: "klio/pointcloud_to_map"
+    topic_body_velocity_imu: "klio/body_velocity_imu"
+    topic_voxel_map: "klio/voxel_map"
+    topic_contact_scores_prefix: "klio/contact_scores_"
+    topic_foot_position_prefix: "klio/foot_position_"
+    topic_foot_velocity_prefix: "klio/foot_velocity_"
 
     # Voxel Map
     pub_plane_en: true

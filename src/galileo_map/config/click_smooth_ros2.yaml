@@ -117,7 +117,7 @@ rog_map:
 
   # Virtual ceil and ground
   virtual_ceil_height: 3.5
-  virtual_ground_height: -0.1
+  virtual_ground_height: -1.0
 
   load_pcd_en: false
 
@@ -127,7 +127,7 @@ rog_map:
     threshold: 0.3
 
   esdf:
-    enable: false
+    enable: true
     resolution: 0.1
     # The range of esdf around the odom [m].
     local_update_box: [ 5,5,3 ]
@@ -136,8 +136,8 @@ rog_map:
   #  else user should call function [updateMap] to update the map.
   ros_callback:
     enable: true
-    cloud_topic: "/klio/pointcloud_world_full"
-    odom_topic: "/klio/odometry"
+    cloud_topic: "/klio/pointcloud_to_map"
+    odom_topic: "/klio/odometry_to_map"
     odom_timeout: 2.0
 
 
@@ -151,8 +151,12 @@ rog_map:
     frame_rate: 0
     # visualization range along the odom [m].
     range: [ 15, 15,4 ]
-    frame_id: "world"
+    frame_id: "map"
     pub_unknown_map_en: false
+
+  tf:
+    parent_frame_id: "map"
+    child_frame_id: "aa"
 
   # Intensity filter for input point cloud. If the point intensity is less than this value,
   # it will be ignored (to avoid noise like dusk).

@@ -317,13 +317,17 @@ void ProbMap::updateProbMap(const PointCloud& cloud, const Pose& pose) {
     }
 
     if (pos.z() > cfg_.virtual_ceil_height) {
-        std::cout << YELLOW << " -- [ROGMapCore] Odom above virtual ceil, please check map parameter -- ." << RESET
-            << std::endl;
+        std::cout << YELLOW << " -- [ROGMapCore] Odom above virtual ceil, please check map parameter -- ."
+                  << " pos.z=" << pos.z()
+                  << " ceil=" << cfg_.virtual_ceil_height
+                  << " (res=" << cfg_.resolution << ")" << RESET << std::endl;
         return;
     }
     else if (pos.z() < cfg_.virtual_ground_height) {
-        std::cout << YELLOW << " -- [ROGMapCore] Odom below virtual ground, please check map parameter -- ." << RESET
-            << std::endl;
+        std::cout << YELLOW << " -- [ROGMapCore] Odom below virtual ground, please check map parameter -- ."
+                  << " pos.z=" << pos.z()
+                  << " ground=" << cfg_.virtual_ground_height
+                  << " (res=" << cfg_.resolution << ")" << RESET << std::endl;
         return;
     }
 
@@ -334,6 +338,11 @@ void ProbMap::updateProbMap(const PointCloud& cloud, const Pose& pose) {
         slideAllMap(pos);
     }
 
+    // 额外调试：打印 ground/ceil 与 pos 的相对关系
+    // std::cout << "[ROGMapCore][DBG] pos=" << pos.transpose()
+    //           << ", ground=" << cfg_.virtual_ground_height
+    //           << ", ceil=" << cfg_.virtual_ceil_height
+    //           << ", res=" << cfg_.resolution << std::endl;
     updateLocalBox(pos);
     TimeConsuming t_raycast("raycast", false);
     raycastProcess(cloud, pos);

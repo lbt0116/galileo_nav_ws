@@ -173,6 +173,10 @@ namespace rog_map {
                 point_filt_num = 1;
             }
 
+            // TF frame ids
+            loader.LoadParam(name_space + "/tf/parent_frame_id", tf_parent_frame_id, frame_id);
+            loader.LoadParam(name_space + "/tf/child_frame_id", tf_child_frame_id, string("base_link"));
+
 
             // raycasting
             loader.LoadParam(name_space + "/raycasting/enable", raycasting_en, true);
@@ -323,6 +327,9 @@ namespace rog_map {
         int intensity_thresh{};
         /* aster properties */
         string frame_id{};
+        // TF configuration
+        string tf_parent_frame_id{};
+        string tf_child_frame_id{};
         bool map_sliding_en{true};
         Vec3f fix_map_origin{};
         string odom_topic{}, cloud_topic{};

@@ -85,8 +85,8 @@ namespace rog_map {
 
             geometry_msgs::msg::TransformStamped transformStamped;
             transformStamped.header.stamp = nh_->get_clock()->now();
-            transformStamped.header.frame_id = "world";
-            transformStamped.child_frame_id = "drone";
+            transformStamped.header.frame_id = cfg_.tf_parent_frame_id;
+            transformStamped.child_frame_id = cfg_.tf_child_frame_id;
             transformStamped.transform.translation.x = odom_msg->pose.pose.position.x;
             transformStamped.transform.translation.y = odom_msg->pose.pose.position.y;
             transformStamped.transform.translation.z = odom_msg->pose.pose.position.z;
@@ -214,7 +214,7 @@ namespace rog_map {
                     PointCloud pc;
                     esdf_map_->getPositiveESDFPointCloud(box_min, box_max, robot_state_.p.z() - 0.5, pc);
                     pcl::toROSMsg(pc, cloud_msg);
-                    cloud_msg.header.frame_id = "world";
+                    cloud_msg.header.frame_id = cfg_.frame_id;
                     cloud_msg.header.stamp = nh_->get_clock()->now();
                     vm_.esdf_pub->publish(cloud_msg);
                 }
@@ -294,7 +294,7 @@ namespace rog_map {
             }
             pcl::toROSMsg(pcl_cloud, cloud);
             cloud.header.stamp = nh_->get_clock()->now();
-            cloud.header.frame_id = "world";
+            cloud.header.frame_id = cfg_.frame_id;
         }
 
     public:
@@ -362,7 +362,7 @@ namespace rog_map {
         }
 
     private:
-        static void visualizeBoundingBox(visualization_msgs::msg::MarkerArray& mkrarr,
+        void visualizeBoundingBox(visualization_msgs::msg::MarkerArray& mkrarr,
                                          const double& stamp,
                                          const Vec3f& box_min,
                                          const Vec3f& box_max,
@@ -371,6 +371,7 @@ namespace rog_map {
                                          const double& size_x = 0.1,
                                          const double& alpha = 1.0,
                                          const bool& print_ns = true) {
+            (void)print_ns;
             Vec3f size = (box_max - box_min) / 2;
             Vec3f vis_pos_world = (box_min + box_max) / 2;
             double width = size.x();
@@ -381,7 +382,7 @@ namespace rog_map {
             int id = 0;
             visualization_msgs::msg::Marker line_strip;
             line_strip.header.stamp = rclcpp::Time(stamp);
-            line_strip.header.frame_id = "world";
+            line_strip.header.frame_id = cfg_.frame_id;
             line_strip.action = visualization_msgs::msg::Marker::ADD;
             line_strip.ns = ns;
             line_strip.pose.orientation.w = 1.0;
@@ -436,7 +437,7 @@ namespace rog_map {
             mkrarr.markers.push_back(line_strip);
         }
 
-        static void visualizeText(visualization_msgs::msg::MarkerArray& mkr_arr,
+        void visualizeText(visualization_msgs::msg::MarkerArray& mkr_arr,
                                   const double& stamp,
                                   const std::string& ns,
                                   const std::string& text,
@@ -445,7 +446,7 @@ namespace rog_map {
                                   const double& size = 0.6,
                                   const int& id = -1) {
             visualization_msgs::msg::Marker marker;
-            marker.header.frame_id = "world";
+            marker.header.frame_id = cfg_.frame_id;
             marker.header.stamp = rclcpp::Time(stamp);
             marker.action = visualization_msgs::msg::Marker::ADD;
             marker.pose.orientation.w = 1.0;
@@ -468,7 +469,7 @@ namespace rog_map {
             mkr_arr.markers.push_back(marker);
         };
 
-        static void visualizePoint(visualization_msgs::msg::MarkerArray& mkr_arr,
+        void visualizePoint(visualization_msgs::msg::MarkerArray& mkr_arr,
                                    const double& stamp,
                                    const Vec3f& pt,
                                    Color color = Color::Pink(),
@@ -481,7 +482,7 @@ namespace rog_map {
             if (isnan(pt.x()) || isnan(pt.y()) || isnan(pt.z())) {
                 return;
             }
-            marker_ball.header.frame_id = "world";
+            marker_ball.header.frame_id = cfg_.frame_id;
             marker_ball.header.stamp = rclcpp::Time(stamp);
             marker_ball.ns = ns.c_str();
             marker_ball.id = id >= 0 ? id : cnt++;
@@ -504,7 +505,7 @@ namespace rog_map {
             // add test
             if (print_ns) {
                 visualization_msgs::msg::Marker marker;
-                marker.header.frame_id = "world";
+                marker.header.frame_id = cfg_.frame_id;
                 marker.header.stamp = rclcpp::Time(stamp);
                 marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.pose.orientation.w = 1.0;

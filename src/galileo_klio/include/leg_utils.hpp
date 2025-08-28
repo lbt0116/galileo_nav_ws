@@ -7,7 +7,6 @@
 #include <vector>
 #include <stdexcept>
 #include <cmath>
-#include <iostream>
 
 // 添加必要的头文件
 #include "common.hpp"
@@ -447,8 +446,9 @@ inline void processing(double aligned_timestamp,                    // 对齐后
                       const Vector3d& imu_gyr,                      // IMU角速度
                       const std::vector<bool>& contacts,            // 4条腿的接触状态
                       galileo_klio::common::KinImuMeas& kin_imu_meas,
-                      const Vector3d& extrinsic_T = Vector3d::Zero(),           // IMU到激光雷达的平移向量
-                      const Matrix3d& extrinsic_R = Matrix3d::Identity()) {     // IMU到激光雷达的旋转矩阵
+                      const Vector3d& extrinsic_T = Vector3d::Zero(),           // LiDAR<-IMU 平移（IMU到LiDAR平移）
+                      const Matrix3d& extrinsic_R = Matrix3d::Identity(),       // LiDAR<-IMU 旋转（IMU到LiDAR旋转，数值即 LiDAR→IMU 的转置）
+                      const Matrix3d& lidar_to_body_rot = Matrix3d::Identity()) { // LiDAR->Body 旋转矩阵（由外部传入）
   
   // 设置时间戳
   kin_imu_meas.time_stamp_ = aligned_timestamp;
@@ -459,22 +459,15 @@ inline void processing(double aligned_timestamp,                    // 对齐后
     kin_imu_meas.gyr_[i] = imu_gyr[i];
   }
   
-  // 坐标转换矩阵：机器人本体坐标系到激光雷达坐标系（绕Y轴旋转90°）
-  // 使用Eigen的欧拉角方法构建旋转矩阵
-  // 绕Y轴旋转90度（pitch = 90°）
-  Matrix3d body_to_lidar_rot = (Eigen::AngleAxisd(0.0, Vector3d::UnitX()) *      // roll = 0°
-                                 Eigen::AngleAxisd(M_PI / 2.0, Vector3d::UnitY()) *  // pitch = 90°
-                                 Eigen::AngleAxisd(0.0, Vector3d::UnitZ())).toRotationMatrix().transpose() ;  // yaw = 0°
-  
-  // 激光雷达到IMU的转换矩阵（外参的逆变换）
+   // 激光雷达到IMU的转换矩阵（外参的逆变换）
   Matrix3d lidar_to_imu_rot = extrinsic_R;
   Vector3d lidar_to_imu_t = -lidar_to_imu_rot * extrinsic_T;
   
   // 设置足端位置、速度和接触状态（应用坐标转换）
   for (int leg_idx = 0; leg_idx < 4; ++leg_idx) {
-    // 1. 机器人本体坐标系 -> 激光雷达坐标系
-    Vector3d foot_pos_lidar = body_to_lidar_rot* foot_positions[leg_idx];
-    Vector3d foot_vel_lidar = body_to_lidar_rot* foot_velocities[leg_idx];
+    // 1. 机器人本体坐标系 -> 激光雷达坐标系（因为传入的是 LiDAR->Body，所以取转置得到 Body->LiDAR）
+    Vector3d foot_pos_lidar = lidar_to_body_rot.transpose() * foot_positions[leg_idx];
+    Vector3d foot_vel_lidar = lidar_to_body_rot.transpose() * foot_velocities[leg_idx];
     
     // 2. 激光雷达坐标系 -> IMU坐标系
     Vector3d foot_pos_imu = lidar_to_imu_rot * foot_pos_lidar + lidar_to_imu_t;
