@@ -1,5 +1,5 @@
 # FAST-LIO-SAM-SC-QN
-+ This repository is a SLAM implementation combining [FAST-LIO2](https://github.com/hku-mars/FAST_LIO) with pose graph optimization and loop closing based on [ScanContext](https://github.com/gisbi-kim/scancontext_tro), [Quatro](https://quatro-plusplus.github.io/), and [Nano-GICP module](https://github.com/engcang/nano_gicp)
++ This repository is a SLAM implementation with pose graph optimization and loop closing based on [ScanContext](https://github.com/gisbi-kim/scancontext_tro), [Quatro](https://quatro-plusplus.github.io/), and [Nano-GICP module](https://github.com/engcang/nano_gicp)
     + [ScanContext](https://github.com/gisbi-kim/scancontext_tro) - a global descriptor for LiDAR point cloud, here it is used as loop candidate pair detection
     + [Quatro](https://quatro-plusplus.github.io/) - fast, accurate and robust global registration which provides great initial guess of transform
     + [Quatro module](https://github.com/engcang/quatro) - `Quatro` as a module, can be easily used in other packages
@@ -64,11 +64,10 @@
     ```
 
 ## How to run
-+ Then run (change config files in third_party/`FAST_LIO`)
++ Then run
     ```shell
     roslaunch fast_lio_sam_sc_qn run.launch lidar:=ouster
     roslaunch fast_lio_sam_sc_qn run.launch lidar:=velodyne
-    roslaunch fast_lio_sam_sc_qn run.launch lidar:=livox
     ```
 * In particular, we provide a preset launch option for specific datasets:
     ```shell
