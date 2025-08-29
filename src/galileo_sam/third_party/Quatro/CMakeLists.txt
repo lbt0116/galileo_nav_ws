@@ -2,9 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 project(quatro)
 
 ### set compiler
-# 默认使用 Release，但不覆盖外部传入
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
+get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(GENERATOR_IS_MULTI_CONFIG)
+  set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+else()
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
 endif()
 # 仅设置通用标志，调试符号放到 Debug 专用变量
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
@@ -24,19 +26,10 @@ find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(teaserpp REQUIRED)
-if(PCL_FOUND)
-  message(WARNING "PCL_VER: ${PCL_VERSION}, and PCL_DIR: ${PCL_INCLUDE_DIRS}")
-endif()
-if(Eigen3_FOUND)
-  message(WARNING "EIGEN_VER: ${EIGEN3_VERSION_STRING}, and Eigen DIR: ${EIGEN3_INCLUDE_DIR}")
-endif()
-if(teaserpp_FOUND)
-  message(WARNING "teaserpp found")
-endif()
+## 简化构建输出
 
 #### for tbb
 if(QUATRO_TBB)
-  message(WARNING "Quatro with TBB")
   list(APPEND CMAKE_MODULE_PATH /usr/local/include /usr/include)
   find_library(TBB_LIBRARY tbb HINTS /usr/lib /usr/local/lib)
   message(WARNING "TBB FOUND, ${TBB_LIBRARY}")

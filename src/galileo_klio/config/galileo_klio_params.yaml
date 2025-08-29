@@ -11,7 +11,7 @@
     debug_jump_yaw_thresh_deg: 25.0    # 偏航跳变阈值（度）
     debug_log_period: 0.2    
     # KI Options
-    only_imu_use: false  # True: use IMU from <sensor_msgs::Imu>, without kinematics
+    only_imu_use: true  # True: use IMU from <sensor_msgs::Imu>, without kinematics
                          # False: use IMU and Kin. from <unitree_legged_msgs/HighState>
     redundancy: false    
 

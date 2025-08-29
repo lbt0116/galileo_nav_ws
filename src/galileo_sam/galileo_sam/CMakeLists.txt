@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(galileo_sam)
+get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(GENERATOR_IS_MULTI_CONFIG)
+  set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+else()
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,15 +32,7 @@ find_package(teaserpp REQUIRED)
 find_package(nano_gicp REQUIRED)
 find_package(quatro REQUIRED)
 
-if(PCL_FOUND)
-  message(STATUS "PCL_VER: ${PCL_VERSION}, PCL_DIR: ${PCL_INCLUDE_DIRS}")
-endif()
-if(Eigen3_FOUND)
-  message(STATUS "EIGEN_VER: ${EIGEN3_VERSION_STRING}, Eigen DIR: ${EIGEN3_INCLUDE_DIR}")
-endif()
-if(GTSAM_FOUND)
-  message(STATUS "GTSAM_VER: ${GTSAM_VERSION}, GTSAM DIR: ${GTSAM_INCLUDE_DIR}")
-endif()
+## 简化构建输出，去除第三方版本噪音
 
 ## 目标级 include，避免全局污染
 
@@ -51,7 +49,7 @@ target_include_directories(${PROJECT_NAME}_modules PUBLIC
   ${EIGEN3_INCLUDE_DIR}
   ${GTSAM_INCLUDE_DIR}
 )
-target_compile_options(${PROJECT_NAME}_modules PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME}_modules PRIVATE -Wall -Wextra -Wpedantic -O3)
 ament_target_dependencies(${PROJECT_NAME}_modules
   rclcpp
   std_msgs
@@ -82,7 +80,7 @@ target_compile_features(${PROJECT_NAME}_node PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME}_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic -O3)
 ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   std_msgs

@@ -5,8 +5,13 @@ project(galileo_map)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_BUILD_TYPE "Debug")
-# 由 colcon mixin 控制构建型态与编译选项，避免在包内设置全局 Flags
+# 强制 Release 构建（不依赖外部指定）
+get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(GENERATOR_IS_MULTI_CONFIG)
+  set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+else()
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
 
 # reduce warning
 #add_compile_options(-Wno-dev)
@@ -20,9 +25,6 @@ add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_definitions(-DORIGIN_AT_CORNER)
 
 string(TOUPPER $ENV{ROS_DISTRO} ROS_VERSION)
-message(STATUS "ROS version: ${ROS_VERSION}")
-
-message("Using ROS2")
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -66,7 +68,7 @@ add_library(${PROJECT_NAME} STATIC ${srcs})
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -O3)
 target_link_libraries(${PROJECT_NAME} PUBLIC
         ${third_party_libs})
 
@@ -86,7 +88,7 @@ target_link_libraries(${PROJECT_NAME}_node PUBLIC
         ${PROJECT_NAME}
 )
 target_compile_features(${PROJECT_NAME}_node PUBLIC cxx_std_17)
-target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic -O3)
 
 
 install(TARGETS

@@ -39,17 +39,20 @@ find_package(GTSAM QUIET)
 # glog/gflags 移除，统一使用 ROS2 日志
 
 ## 构建型态由 colcon mixin 控制（debug/release），包内不强行设置
+# 显式强制本包使用 Release（无论上层如何指定）
+get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(GENERATOR_IS_MULTI_CONFIG)
+  set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+else()
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
 
 # 添加定义
 add_definitions(-DROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/")
 
 ## 全局编译标志改为目标级设置，避免污染其他包
 
-# 获取CPU信息
-message(STATUS "Current CPU architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-include(ProcessorCount)
-ProcessorCount(CPU_N)
-message(STATUS "Processor number: ${CPU_N}")
+#
 
 ## 目标级包含目录
 
@@ -85,7 +88,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${EIGEN3_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
 )
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -O3)
 
 # 链接库
 target_link_libraries(${PROJECT_NAME}
@@ -117,7 +120,7 @@ target_link_libraries(${PROJECT_NAME}_node
     ${PROJECT_NAME}
 )
 target_compile_features(${PROJECT_NAME}_node PUBLIC cxx_std_17)
-target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+target_compile_options(${PROJECT_NAME}_node PRIVATE -Wall -Wextra -Wpedantic -O3)
 
 # 安装目标
 install(TARGETS

@@ -745,7 +745,6 @@ void VoxelMapManager::build_single_residual(pointWithVar &pv, const VoxelOctoTre
 void VoxelMapManager::pubVoxelMap() {
     double max_trace = 0.25;
     double pow_num = 0.2;
-    rclcpp::Rate loop(500);
     std::vector<VoxelPlane> pub_plane_list;
     for (auto iter = voxel_map_.begin(); iter != voxel_map_.end(); iter++) {
         GetUpdatePlane(iter->second, config_setting_.max_layer_, pub_plane_list);
@@ -771,7 +770,6 @@ void VoxelMapManager::pubVoxelMap() {
     msg.header.stamp = rclcpp::Clock().now();
     msg.header.frame_id = output_frame_id_;
     voxel_map_pub_->publish(msg);
-    loop.sleep();
 }
 
 bool VoxelMapManager::saveMapToPCD(const std::string &file_path) {

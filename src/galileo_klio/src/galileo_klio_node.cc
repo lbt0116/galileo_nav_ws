@@ -142,16 +142,17 @@ GalileoKLIONode::GalileoKLIONode()
         cmd_vel_topic_, 10,
         std::bind(&GalileoKLIONode::userCommandCallback, this, std::placeholders::_1));
 
+    auto pub_qos = rclcpp::QoS(5).best_effort();
     // 发布话题
-    pub_pointcloud_body_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_body_, 10);
-    pub_pointcloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_, 10);
-    pub_pointcloud_world_full_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_full_, 10);
-    pub_path_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_, 10);
-    pub_path_to_map_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_to_map_, 10);
-    pub_odom_world_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_world_, 10);
-    pub_odom_to_map_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_to_map_, 10);
-    pub_pointcloud_to_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_to_map_, 10);
-    pub_body_velocity_imu_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(topic_body_velocity_imu_, 10);
+    pub_pointcloud_body_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_body_, pub_qos);
+    pub_pointcloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_, pub_qos);
+    pub_pointcloud_world_full_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_full_, pub_qos);
+    pub_path_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_, pub_qos);
+    pub_path_to_map_ = this->create_publisher<nav_msgs::msg::Path>(topic_path_to_map_, pub_qos);
+    pub_odom_world_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_world_, pub_qos);
+    pub_odom_to_map_ = this->create_publisher<nav_msgs::msg::Odometry>(topic_odom_to_map_, pub_qos);
+    pub_pointcloud_to_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_to_map_, pub_qos);
+    pub_body_velocity_imu_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(topic_body_velocity_imu_, pub_qos);
 
     // 初始化四条腿的发布器
     std::vector<std::string> leg_names = {"FR", "FL", "RR", "RL"};
@@ -1059,15 +1060,15 @@ void GalileoKLIONode::timerCallback()
         last_state_predict_time_ = end_time;
         last_state_update_time_ = end_time;
         // 若有机载IMU消息，则记录初始化姿态（仅记录一次）
-        if (!has_imu_onboard_init_ && imu_onboard_latest_)
-        {
-            imu_onboard_init_q_ = Eigen::Quaterniond(
-                imu_onboard_latest_->orientation.w,
-                imu_onboard_latest_->orientation.x,
-                imu_onboard_latest_->orientation.y,
-                imu_onboard_latest_->orientation.z);
-            has_imu_onboard_init_ = true;
-        }
+        // if (!has_imu_onboard_init_ && imu_onboard_latest_)
+        // {
+        //     imu_onboard_init_q_ = Eigen::Quaterniond(
+        //         imu_onboard_latest_->orientation.w,
+        //         imu_onboard_latest_->orientation.x,
+        //         imu_onboard_latest_->orientation.y,
+        //         imu_onboard_latest_->orientation.z);
+        //     has_imu_onboard_init_ = true;
+        // }
         return;
     }
 
@@ -1910,7 +1911,8 @@ void GalileoKLIONode::publishMappingInputs(double stamp_sec)
     odom_to_map.pose.pose.position.y = t_Wimu.y();
     odom_to_map.pose.pose.position.z = t_Wimu.z();
 
-    odom_to_map.pose.pose.orientation = imu_onboard_latest_->orientation;
+    // odom_to_map.pose.pose.orientation = imu_onboard_latest_->orientation;
+    // odom_to_map.pose.pose.orientation = eskf_->state().rot_; //TODO
 
     pub_odom_to_map_->publish(odom_to_map);
 
