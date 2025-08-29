@@ -38,236 +38,40 @@ src/**/datasets/**
 # Editor/Tool caches
 .cache/
 .clangd/
-*.idx
-compile_commands.json
 
-# Temporary files
+# Compilation artifacts and build files
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Development and debug files
+*.log
+*.out
 *.tmp
-*.temp
+*.bak
 *~
 
-# Backup files
-*.bak
-*.backup
-*.orig
-
-# Log files
-*.log
-
-# Core dumps
-core
-core.*
-
-# Build artifacts and intermediates
-*.o
+# Large binary files
 *.so
 *.a
-*.la
-*.lo
-*.dll
+*.o
+*.obj
 *.exe
-
-# Python
-*.egg-info/
-dist/
-*.whl
-
-# Documentation build
-docs/_build/
-
-# Node.js (if any)
-node_modules/
-npm-debug.log*
-
-# Rust (if any)
-target/
-
-# Go (if any)
-*.exe
-*.exe~
 *.dll
-*.so
 *.dylib
-*.test
-*.out
 
-# Java (if any)
-*.class
-*.jar
-*.war
-*.ear
-*.nar
-hs_err_pid*
-replay_pid*
+# Python compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
 
-# Gradle
-.gradle/
-build/
-
-# Maven
-target/
-
-# Eclipse
-.project
-.classpath
-.settings/
-
-# IntelliJ IDEA
-.idea/
-*.iws
-*.iml
-*.ipr
-
-# NetBeans
-nbproject/
-
-# Visual Studio Code
-.vscode/
-*.code-workspace
-
-# Vim
-*.swp
-*.swo
-*~
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# Sublime Text
-*.tmlanguage.cache
-*.tmPreferences.cache
-*.stTheme.cache
-*.sublime-workspace
-*.sublime-project
-
-# TextMate
-*.tmproj
-*.tmproject
-tmtags
-
-# Xcode
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata/
-*.moved-aside
-*.xccheckout
-*.xcscmblueprint
-
-# AppCode
-.idea/
-
-# Ruby
-*.gem
-.bundle
-.byebug_history
-.gem
-Gemfile.lock
-*.rbc
-/config/locales/*.yml.bak
-/log
-/tmp
-/vendor/bundle
-
-# Rails
-*.sqlite3
-*.sqlite3-journal
-
-# Sinatra
-.ruby-version
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Coverage reports
-coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-# Lidar data files (specific to this project)
-*.bin
-*.laz
-*.las
-*.xyz
-
-# Map files
-*.map
-*.occ
-*.esdf
-
-# Configuration backups
-*backup*
-*_old*
-*_original*
+# ROS2 specific
+.colcon/
+.ament/
+ros2_/
