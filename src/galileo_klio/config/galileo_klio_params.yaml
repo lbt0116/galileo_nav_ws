@@ -40,6 +40,12 @@
                      -1.0, 0.0, 0.0
                     ] 
 
+    # lidar_to_body_R: [
+    #                  1.0, 0.0, 0.0,
+    #                  0.0, 1.0, 0.0,
+    #                  0.0, 0.0, 1.0
+    #                 ] 
+
     # Frame IDs
     output_frame_id: "odom"
     body_frame_id: "body"

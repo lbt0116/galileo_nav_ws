@@ -142,7 +142,7 @@ GalileoKLIONode::GalileoKLIONode()
         cmd_vel_topic_, 10,
         std::bind(&GalileoKLIONode::userCommandCallback, this, std::placeholders::_1));
 
-    auto pub_qos = rclcpp::QoS(5).best_effort();
+    auto pub_qos = rclcpp::QoS(10);
     // 发布话题
     pub_pointcloud_body_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_body_, pub_qos);
     pub_pointcloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(topic_pointcloud_world_, pub_qos);
